@@ -1,4 +1,7 @@
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 class Steg
@@ -42,8 +45,54 @@ You can assume that the images are all in the same directory as the java files
 //TODO you must write this method
 public String hideString(String payload, String cover_filename)
 {
+	// Select an appropriate filename
+	String filenameToReturn = "stegResult.bmp"; 
+	Integer fileCounter = 1;
+	while (! (new File(filenameToReturn).isFile() )) {
+		filenameToReturn = filenameToReturn.split(".")[0].concat(fileCounter.toString()).concat(".bmp");
+		fileCounter++;
+	}
 	
-return null;
+	try {
+		Path originalPath = Paths.get(cover_filename);
+		byte[] originalData = Files.readAllBytes(originalPath);
+		FileOutputStream steg = new FileOutputStream(filenameToReturn);
+		int currentByte = 0;  
+		
+		// The first 54 bytes of the original contain image metadata, so we start at byte 55.
+		for (; currentByte < 54; currentByte++) {
+			steg.write(originalData[currentByte]);
+		}
+		
+		// Let's throw our string metadata in here.
+		String sizeData = String.format("%32s", Integer.toBinaryString(payload.length())).replace(' ', '0'); // Pads to the left with 0s, makes it 32 chars
+		for (char bitChar : sizeData.toCharArray()) {
+			int bit = (int) bitChar - 48;
+			steg.write( swapLsb(bit, originalData[currentByte++]) );
+		}
+		
+		// We can write 0s for the file extension, because what we get out is a string
+		// TODO: is this correct?
+		for (int index = 0; index < 65; index++) {
+			steg.write( swapLsb(0, originalData[currentByte++]) );
+		}
+		
+		// Let's write our steganography stuff!
+		for (byte b : payload.getBytes(payload)) {
+			String correspondingString = Integer.toBinaryString(b & 0xFF).replace(' ', '0');
+			for (char bitChar : correspondingString.toCharArray()) {
+				int bit = (int) bitChar - 48;  // Turn the char into a ascii 0 or 1 and reduce down to the int equivalent
+				steg.write( swapLsb(bit, originalData[currentByte++]) );
+			}
+		}
+		
+		
+	} catch (Exception e) {
+		return "Fail";
+	}
+	
+	return filenameToReturn;
+
 } 
 //TODO you must write this method
 /**
@@ -54,7 +103,39 @@ was unsuccessful
 */
 public String extractString(String stego_image)
 {
-return null;
+	String message = "";
+	try {
+		int currentByte = 54;
+		Path originalPath = Paths.get(stego_image);
+		byte[] originalData = Files.readAllBytes(originalPath);
+		String sizeBinaryString = "";
+		
+		// Get the size information
+		for (; currentByte < 86; currentByte++) {
+			sizeBinaryString.concat( Integer.toString(getLsb(originalData[currentByte])) );
+		}
+		Integer size = Integer.parseInt(sizeBinaryString, 2);
+		
+		// This is a string, so skip file extension.
+		currentByte += 64;
+		
+		// Read forward that many bytes and stop.
+		int messageEnd = currentByte + (size*8);  // One bit encoded per byte in steg
+		String encodedMessage = "";
+		for (; currentByte < messageEnd; currentByte++) {
+			encodedMessage.concat( Integer.toString(getLsb(originalData[currentByte])) );
+		}
+		
+		// Turn the encoded message into a string by changing each block of 8 digits into a char
+		for (int index = 0; index < encodedMessage.length(); index += 8) {
+			String currentChar = Integer.toString( (Integer.parseInt(encodedMessage.substring(index, index+8), 2) ) ); // Convert the next 8 bits into its equivalent ascii character
+			message.concat(currentChar);
+		}
+		
+	} catch (Exception e) {
+		return "Fail";
+	}
+	return message;
 }
 
 //TODO you must write this method
@@ -68,7 +149,7 @@ result of the successful hiding process
 */
 public String hideFile(String file_payload, String cover_image)
 {
-	
+	return "";
 }
 
 //TODO you must write this method
@@ -82,6 +163,7 @@ result of the successful extraction process
 public String extractFile(String stego_image)
 {
 
+	return "";
 
 }
 
@@ -94,10 +176,12 @@ public String extractFile(String stego_image)
  */
 public int swapLsb(int bitToHide,int byt)
 {		
-	
+	return (byt - byt%2) + bitToHide;
 }
 
-
-
+// Helper methods
+public int getLsb(int inByte) {
+	return (int)inByte % 2;
+}
 
 }
