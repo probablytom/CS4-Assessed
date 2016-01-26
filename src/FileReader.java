@@ -3,20 +3,11 @@ import java.util.*;
 
 /**
  * This class reads a payload file
- * @author Tom Wallis 2025138, David Creigh MATRICHEREPLEASEDAVID!!
+ * @author Rose
  *
  */
 public class FileReader 
 {
-
-
-
-
-	// VARIABLE DECLARATIONS BEGIN HERE
-
-
-
-	
 	
 	/**
 	 * A fileinputstream object to read in the bytes of the file
@@ -65,14 +56,6 @@ public class FileReader
 	 * A boolean indicating successful execution of all processes
 	 */
 	private boolean success=true;
-
-
-
-
-	// METHODS BEGIN HERE
-
-
-
 	
 	/**
 	 * @param File f, the file which has to be read in
@@ -202,7 +185,7 @@ public class FileReader
 			{
 				hasNext=true;
 			}
-		//otherwise, we'reMETHODS on to checking the bytes of the file, if the current position
+		//otherwise, we're on to checking the bytes of the file, if the current position
 		//indicates it's at the last bit of the current byte (position 7 since
 		// you count from 0), then try to get the next byte 
 		//from the payload
