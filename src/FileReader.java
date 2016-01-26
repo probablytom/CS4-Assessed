@@ -41,7 +41,7 @@ public class FileReader
 	/**
 	 * List to hold the bits which represent the size of the file  
 	 */
-	private List<Integer> sbits;
+	private List<Integer> sbits = new ArrayList<Integer>();
 	/**
 	 * List to hold the bits representing the extension
 	 */
@@ -279,7 +279,10 @@ public class FileReader
 	 */
 	private void populateSizeBits()
 	{
-	
+		String sizeString = Long.toBinaryString(file.length());
+		for (char bitChar : sizeString.toCharArray()) {
+			sbits.add((int)bitChar - 48);
+		}
 	}
 	
 	//TODO YOU MUST FILL IN THIS METHOD
@@ -289,7 +292,13 @@ public class FileReader
 	 */
 	private void populateExtensionBits()
 	{
-
+		String extension = getExtension();
+		// Cycle through every character in the extension, and add a 1 or a 0 depending on whether there's a 1 or a 0 in the binary representation of each character in that.
+		for (char extChar : extension.toCharArray()) {
+			for (char bitChar : Integer.toBinaryString((int) extChar).toCharArray() ) {
+				extBits.add((int) bitChar - 48);
+			}
+		}
 	}
 	
 
