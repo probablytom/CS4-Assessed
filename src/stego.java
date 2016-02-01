@@ -7,8 +7,6 @@ import java.util.*;
 class Steg
 {
 	
-	
-	
 	/**
 	 * A constant to hold the number of bits per byte
 	 */
@@ -64,8 +62,8 @@ class Steg
 				steg.write(originalData[currentByte]);
 			}
 			
-			// Let's throw our string metadata in here.
-			String sizeData = String.format("%32s", Integer.toBinaryString(payload.length())).replace(' ', '0'); // Pads to the left with 0s, makes it 32 chars
+			// Let's throw our string metadata in here, starting with size.
+			String sizeData = padString(Integer.toBinaryString(payload.length()), sizeBitsLength, '0'); 
 			for (char bitChar : sizeData.toCharArray()) {
 				int bit = (int) bitChar - 48;
 				steg.write( swapLsb(bit, originalData[currentByte++]) );
@@ -126,11 +124,8 @@ class Steg
 				encodedMessage.concat( Integer.toString(getLsb(originalData[currentByte])) );
 			}
 			
-			// Turn the encoded message into a string by changing each block of 8 digits into a char
-			for (int index = 0; index < encodedMessage.length(); index += 8) {
-				String currentChar = Integer.toString( (Integer.parseInt(encodedMessage.substring(index, index+8), 2) ) ); // Convert the next 8 bits into its equivalent ascii character
-				message.concat(currentChar);
-			}
+			// Switch from a binary string of ascii to a string of chars the ascii represents
+			message = asciiStringToString(encodedMessage);
 			
 		} catch (Exception e) {
 			return "Fail";
@@ -192,9 +187,67 @@ class Steg
 	*/
 	public String extractFile(String stego_image)
 	{
-	
-		return "";
-	
+		
+		try {
+			
+			FileReader stegOriginal = new FileReader(stego_image);
+			
+			// Make sure nothing crazy has happened so far...
+			if (!stegOriginal.getSuccessBool()) {
+				throw new Exception();
+			}
+			// To hold the information we've just extracted
+			int currentBit = 0;
+			int bitIndex = 0;
+			String sizeString = "";
+			String extString = "";
+			// Cycle through and process what we've got
+			while (currentBit < 54 + sizeBitsLength + extBitsLength) {
+				
+				currentBit = stegOriginal.getNextBit();
+				
+				// Avoid the first 54 bits returned, it's Windows metadata. 
+				if (bitIndex > 54) {
+					// If we're currently at the size section
+					if (bitIndex < (54 + sizeBitsLength)) {
+						sizeString.concat(Integer.toString(currentBit));
+					}
+					
+					// If we're currently getting the extension
+					if (bitIndex > 54+sizeBitsLength) {
+						extString.concat(Integer.toString(currentBit));
+					}
+					
+				} 
+				
+				bitIndex++;
+				
+			}
+			
+			sizeString = asciiStringToString(sizeString);
+			extString = asciiStringToString(extString);
+			
+			// Get filename using ext
+			// Select an appropriate filename
+			String filenameToReturn = "stegResult.".concat(extString); 
+			Integer fileCounter = 1;
+			while ( (new File(filenameToReturn).isFile() )) {
+				filenameToReturn = filenameToReturn.split(".")[0].concat(fileCounter.toString()).concat(extString);
+				fileCounter++;
+			}			
+			FileOutputStream stegOut = new FileOutputStream(filenameToReturn);
+			
+			// Extract actual file data and write to stegOut
+			while (stegOriginal.hasNextBit()) {
+				stegOut.write(stegOriginal.getNextBit());
+			}
+
+			return filenameToReturn;
+			
+		} catch(Exception e) {
+			return "Fail";
+		}
+
 	}
 	
 	//TODO you must write this method
@@ -210,8 +263,33 @@ class Steg
 	}
 	
 	// Helper methods
+	
+	// Retreive the least significant bit
 	public int getLsb(int inByte) {
 		return (int)inByte % 2;
+	}
+	
+	// Convert a binary string into the string its ascii represents
+	// Returns null if input is of invalid length (must divide by 8
+	public String asciiStringToString(String uin) {
+		if (uin.length() % 8 == 0) {
+			String output = "";
+			
+			for (int currentIndex = 0; currentIndex < uin.length(); currentIndex += 8) {
+				char currentChar = (char)Integer.parseInt(uin.substring(currentIndex, currentIndex + 8), 2);
+				output.concat(Character.toString(currentChar)); 
+			}
+			
+			return output;
+			
+		} else {
+			return null;
+		}
+	}
+	
+	public String padString(String original, int intendedLength, char padChar) {
+		String format = "%".concat(Integer.toString(intendedLength)).concat("d");
+		return String.format(format, original).replace(' ', padChar);
 	}
 	
 }
