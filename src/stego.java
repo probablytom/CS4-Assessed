@@ -40,7 +40,6 @@ class Steg
 	written out as a result of the successful hiding operation. 
 	You can assume that the images are all in the same directory as the java files
 	*/
-	//TODO you must write this method
 	public String hideString(String payload, String cover_filename)
 	{
 		// Select an appropriate filename
@@ -50,40 +49,49 @@ class Steg
 			filenameToReturn = filenameToReturn.split(".")[0].concat(fileCounter.toString()).concat(".bmp");
 			fileCounter++;
 		}
-		
+
 		try {
 			Path originalPath = Paths.get(cover_filename);
 			byte[] originalData = Files.readAllBytes(originalPath);
 			FileOutputStream steg = new FileOutputStream(filenameToReturn);
 			int currentByte = 0;  
 			
+			// Fix the bits in the original data for writing.
+			for (int index = 0; index < originalData.length; index++) {
+				originalData[index] = (byte) (originalData[index] & 0xFF);
+			}
+
 			// The first 54 bytes of the original contain image metadata, so we start at byte 55.
 			for (; currentByte < 54; currentByte++) {
 				steg.write(originalData[currentByte]);
 			}
-			
-			// Let's throw our string metadata in here, starting with size.
-			String sizeData = padString(Integer.toBinaryString(payload.length()), sizeBitsLength, '0'); 
+
+			// Let's write in the size.
+			String sizeData = padIntegers(Integer.parseInt(Integer.toBinaryString(payload.length())), sizeBitsLength, '0');
 			for (char bitChar : sizeData.toCharArray()) {
 				int bit = (int) bitChar - 48;
-				steg.write( swapLsb(bit, originalData[currentByte++]) );
+				int newbyte = swapLsb(bit, originalData[currentByte++]);
+
+				steg.write( newbyte );
 			}
-			
-			// We can write 0s for the file extension, because what we get out is a string
-			// TODO: is this correct?
-			for (int index = 0; index < 65; index++) {
-				steg.write( swapLsb(0, originalData[currentByte++]) );
-			}
-			
+
+			byte[] payloadBytes = payload.getBytes();
 			// Let's write our steganography stuff!
-			for (byte b : payload.getBytes(payload)) {
-				String correspondingString = Integer.toBinaryString(b & 0xFF).replace(' ', '0');
+			for (int index = 0; index < payloadBytes.length; index++) {
+				byte b = payloadBytes[index];
+				String correspondingString = padIntegers(Integer.parseInt(Integer.toBinaryString(b)), 8, '0');
 				for (char bitChar : correspondingString.toCharArray()) {
 					int bit = (int) bitChar - 48;  // Turn the char into a ascii 0 or 1 and reduce down to the int equivalent
 					steg.write( swapLsb(bit, originalData[currentByte++]) );
 				}
 			}
 			
+			// Write the rest of the original file. 
+			while (currentByte < originalData.length) {
+				steg.write(originalData[currentByte++]);
+			}
+
+			steg.close();
 			
 		} catch (Exception e) {
 			return "Fail";
@@ -92,7 +100,6 @@ class Steg
 		return filenameToReturn;
 	
 	} 
-	//TODO you must write this method
 	/**
 	The extractString method should extract a string which has been hidden in the stegoimage
 	@param the name of the stego image 
@@ -110,30 +117,27 @@ class Steg
 			
 			// Get the size information
 			for (; currentByte < 86; currentByte++) {
-				sizeBinaryString.concat( Integer.toString(getLsb(originalData[currentByte])) );
+				sizeBinaryString = sizeBinaryString.concat( Integer.toString(getLsb(originalData[currentByte])) );
 			}
 			Integer size = Integer.parseInt(sizeBinaryString, 2);
-			
-			// This is a string, so skip file extension.
-			currentByte += 64;
 			
 			// Read forward that many bytes and stop.
 			int messageEnd = currentByte + (size*8);  // One bit encoded per byte in steg
 			String encodedMessage = "";
 			for (; currentByte < messageEnd; currentByte++) {
-				encodedMessage.concat( Integer.toString(getLsb(originalData[currentByte])) );
+				encodedMessage = encodedMessage.concat( Integer.toString(getLsb(originalData[currentByte])) );
 			}
-			
+						
 			// Switch from a binary string of ascii to a string of chars the ascii represents
 			message = asciiStringToString(encodedMessage);
 			
 		} catch (Exception e) {
+			e.printStackTrace();
 			return "Fail";
 		}
 		return message;
 	}
 	
-	//TODO you must write this method
 	/**
 	The hideFile method hides any file (so long as there's enough capacity in the image file) in a cover image
 	
@@ -158,17 +162,30 @@ class Steg
 			FileOutputStream steg = new FileOutputStream(new File(filenameToReturn));
 			Path originalImage = Paths.get(cover_image);
 			byte[] originalData = Files.readAllBytes(originalImage);
-			int currentPosition = 0;  // We can ignore the first 54 points.
+			int currentPosition = 0;  
+			
+			// Fix the bits in the original data for writing.
+			for (int index = 0; index < originalData.length; index++) {
+				originalData[index] = (byte) (originalData[index] & 0xFF);
+			}
 			
 			// Write the first 54 bytes normally
 			for (; currentPosition < 54; currentPosition++) {
 				steg.write(originalData[currentPosition]);
 			}
 			
+			// TODO: Write size
+			
+			// TODO: Write ext
+			
+			
+			
 			// Write the rest of the file as normal.
 			for (;payload.hasNextBit();currentPosition++) {
 				steg.write(swapLsb(payload.getNextBit(), originalData[currentPosition]));
 			}
+			
+			steg.close();
 			
 		} catch (Exception e) {
 			return "Fail";
@@ -177,7 +194,6 @@ class Steg
 		return filenameToReturn;
 	}
 	
-	//TODO you must write this method
 	/**
 	The extractFile method hides any file (so long as there's enough capacity in the image file) in a cover image
 	
@@ -241,7 +257,7 @@ class Steg
 			while (stegOriginal.hasNextBit()) {
 				stegOut.write(stegOriginal.getNextBit());
 			}
-
+			stegOut.close();
 			return filenameToReturn;
 			
 		} catch(Exception e) {
@@ -250,7 +266,6 @@ class Steg
 
 	}
 	
-	//TODO you must write this method
 	/**
 	 * This method swaps the least significant bit with a bit from the filereader
 	 * @param bitToHide - the bit which is to replace the lsb of the byte of the image
@@ -266,7 +281,7 @@ class Steg
 	
 	// Retreive the least significant bit
 	public int getLsb(int inByte) {
-		return (int)inByte % 2;
+		return Math.abs((int)inByte % 2); // we take abs because -a%2 is negative.
 	}
 	
 	// Convert a binary string into the string its ascii represents
@@ -277,7 +292,7 @@ class Steg
 			
 			for (int currentIndex = 0; currentIndex < uin.length(); currentIndex += 8) {
 				char currentChar = (char)Integer.parseInt(uin.substring(currentIndex, currentIndex + 8), 2);
-				output.concat(Character.toString(currentChar)); 
+				output = output.concat(Character.toString(currentChar)); 
 			}
 			
 			return output;
@@ -287,7 +302,7 @@ class Steg
 		}
 	}
 	
-	public String padString(String original, int intendedLength, char padChar) {
+	public String padIntegers(int original, int intendedLength, char padChar) {
 		String format = "%".concat(Integer.toString(intendedLength)).concat("d");
 		return String.format(format, original).replace(' ', padChar);
 	}
