@@ -16,7 +16,7 @@ public class StegTest {
 		assertNotEquals(filenameHidden, "Fail");
 	}
 	
-	@Test
+	//@Test
 	public void testExtractingString() {
 		String payload = "Hoping this is hidden too!";
 		String filenameHidden = steg.hideString(payload, "testImage.bmp");
@@ -28,6 +28,16 @@ public class StegTest {
 	public void testHidingFile() {
 		String filenameHidden = steg.hideFile("test.txt", "testImage.bmp");
 		assertNotEquals(filenameHidden, "Fail");
+	}
+	
+	@Test
+	public void testExtractingFile() {
+		String payloadFile = "test.txt";
+		String filenameHidden = steg.hideFile(payloadFile,  "testImage.bmp");
+		System.out.println(filenameHidden);
+		String filenameExtracted = steg.extractFile(filenameHidden);
+		System.out.println(filenameExtracted);
+		assertNotEquals("Fail", filenameExtracted);
 	}
 	
 }
