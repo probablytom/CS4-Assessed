@@ -272,33 +272,45 @@ public class FileReader
 		return (int)file.length()*byteLength;
 	}
 	
-	//TODO YOU MUST FILL IN THIS METHOD
 	/**
 	 * method to populate the list of bits relating to the size of the payload
 	 * 32 bits used to represent the size
 	 */
 	private void populateSizeBits()
 	{
-		String sizeString = Long.toBinaryString(file.length());
-		for (char bitChar : sizeString.toCharArray()) {
-			sbits.add((int)bitChar - 48);
+		for (int i = 0; i < 4; i++) { // read four bytes
+			try {
+				int currentByte = this.fileInStream.read();
+				for (char bit : Integer.toBinaryString(currentByte).toCharArray()) {
+					sbits.add(bit-48);  // convert ascii digit to numerical digit
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
+		
+		// Create Iterator
+		sBitsIt = sbits.iterator();
 	}
 	
-	//TODO YOU MUST FILL IN THIS METHOD
 	/**
 	 * method to populate the list of bits relating to the extension of the payload
 	 * 64 bits used to represent the extension
 	 */
 	private void populateExtensionBits()
 	{
-		String extension = getExtension();
-		// Cycle through every character in the extension, and add a 1 or a 0 depending on whether there's a 1 or a 0 in the binary representation of each character in that.
-		for (char extChar : extension.toCharArray()) {
-			for (char bitChar : Integer.toBinaryString((int) extChar).toCharArray() ) {
-				extBits.add((int) bitChar - 48);
+		for (int i = 0; i < 64; i++) { // read four bytes
+			try {
+				int currentByte = this.fileInStream.read();
+				char bit = Integer.toBinaryString(currentByte).toCharArray()[7];  // We're only interested in the least significant bit
+				extBits.add(bit-48);  // convert ascii digit to numerical digit
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
 		}
+		
+		// Create iterator
+		extBitsIt = extBits.iterator();
 	}
 	
 
@@ -324,6 +336,15 @@ public class FileReader
 	{
 		return extBits;
 	}
+	
+	
+	
+	// Helper methods
 
+	// Retreive the least significant bit
+	private int getLsb(int inByte) {
+		return Math.abs((int)inByte % 2); // we take abs because -a%2 is negative.
+	}
+	
 }
 

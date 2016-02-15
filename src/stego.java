@@ -4,6 +4,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
+import com.sun.jmx.snmp.Timestamp;
+
 class Steg
 {
 
@@ -43,12 +45,10 @@ class Steg
 	public String hideString(String payload, String cover_filename)
 	{
 		// Select an appropriate filename
-		String filenameToReturn = "stegResult.bmp"; 
-		Integer fileCounter = 1;
-		while ( (new File(filenameToReturn).isFile() )) {
-			filenameToReturn = filenameToReturn.split(".")[0].concat(fileCounter.toString()).concat(".bmp");
-			fileCounter++;
-		}
+		// Select an appropriate filename
+				java.util.Date date = new java.util.Date(); 
+				date.getTime();
+				String filenameToReturn = "stegResult_" + date.getTime() + ".bmp"; 
 
 		try {
 			Path originalPath = Paths.get(cover_filename);
@@ -145,75 +145,17 @@ class Steg
 	@param cover_image - the name of the cover image file, you can assume it is in the same directory as the program
 	@return String - either 'Fail' to indicate an error in the hiding process, or the name of the stego image written out as a
 	result of the successful hiding process
-	 */
-	/*public String hideFile(String file_payload, String cover_image)
-	{
-		// Select an appropriate filename
-		String filenameToReturn = "stegResult.bmp"; 
-		Integer fileCounter = 1;
-		while ( (new File(filenameToReturn).isFile() )) {
-			filenameToReturn = filenameToReturn.split(".")[0].concat(fileCounter.toString()).concat(".bmp");
-			fileCounter++;
-		}
-
-		try {
-			//FileReader payload = new FileReader(file_payload);
-			FileOutputStream steg = new FileOutputStream(new File(filenameToReturn));
-			Path originalImage = Paths.get(cover_image);
-			byte[] originalData = Files.readAllBytes(originalImage);
-			int currentPosition = 0;
-			Path payloadPath = Paths.get(file_payload);
-			byte[] payloadData = Files.readAllBytes(payloadPath);
-
-			// Write the first 54 bytes normally
-			for (; currentPosition < 54; currentPosition++) {
-				steg.write(originalData[currentPosition]);
-			}
-
-
-			//TODO: Write size bits
-			String sizeBits = intToPaddedBinaryString(payloadData.length, sizeBitsLength, '0');
-			for (char sizeBit : sizeBits.toCharArray()) {
-				steg.write(swapLsb((int)sizeBit - 48, originalData[currentPosition++]));
-			}
-			//TODO: Write ext bits
-			int extIndex = file_payload.split(".").length - 1;
-			String ext = file_payload.split(".")[extIndex];
-			// Now that we have the extension, let's cycle through it and work out what needs written.
-			String extBinary = "";
-			for (char extChar : ext.toCharArray()) {
-				// Make sure each char of the extension we're writing is 8 bits long.
-				extBinary = extBinary.concat( intToPaddedBinaryString( (int)extChar, 8, '0')); 
-			}
-
-			//TODO: Write steganographic data
-
-			// There is no more steganographic data to write; finish writing the file as a regular file. 
-			while(currentPosition < originalData.length) {
-				steg.write(originalData[currentPosition++]);
-			}
-
-			steg.close();
-
-		} catch (Exception e) {
-			e.printStackTrace();
-			return "Fail";
-		}
-
-		return filenameToReturn;
-	}*/
+	*/
 	public String hideFile(String file_payload, String cover_image) 
 	{
 		// Select an appropriate filename
-		String filenameToReturn = "stegResult.bmp"; 
-		Integer fileCounter = 1;
-		while ( (new File(filenameToReturn).isFile() )) {
-			filenameToReturn = filenameToReturn.split(".")[0].concat(fileCounter.toString()).concat(".bmp");
-			fileCounter++;
-		}
+		java.util.Date date = new java.util.Date(); 
+		date.getTime();
+		String filenameToReturn = "stegResult_" + date.getTime() + ".bmp"; 
 		
+
 		try {
-			
+
 			// The data of the original image, without a hidden file
 			Path originalPath = Paths.get(cover_image);
 			byte[] originalData = Files.readAllBytes(originalPath);
@@ -246,11 +188,12 @@ class Steg
 
 			System.out.println("Got here");
 			// Write ext
-			String extRaw = file_payload.substring(file_payload.lastIndexOf('.')); // Get the ext as chars
+			String extRaw = file_payload.substring(file_payload.lastIndexOf('.')+1); // Get the ext as chars
 			String ext = "";
 			for (char c : extRaw.toCharArray()) {
 				ext = ext.concat( intToPaddedBinaryString((int)c, 8, '0') );
 			}
+			
 			// We need to format the string one last time incase we have <8 chars. 
 			// However, we can fill the rest with a stop char that we know is invalid; if we hit this in extraction we know we...
 			// ...couldn't fill 64 bits of ext and had to make up the rest with stopchars, so we can stop reading the ext then and we know the ext precicely
@@ -271,7 +214,7 @@ class Steg
 				int currentBit = (int)c - 48;
 				steg.write( swapLsb(currentBit, originalData[currentPosition++]) );
 			}
-			
+
 			// Now let's write the rest of the original data and get out. 
 			while (currentPosition < originalData.length) {
 				steg.write(originalData[currentPosition++]);
@@ -282,7 +225,7 @@ class Steg
 			steg.close();			System.out.println("Got here");
 
 			return filenameToReturn;
-			
+
 		} catch (Exception e) {
 			e.printStackTrace();
 			return "Fail";
@@ -303,67 +246,65 @@ class Steg
 	{
 
 		try {
-			// For reading bits from stegOriginal
-			FileReader stegOriginal = new FileReader(stego_image);
-			// Get the original data
-			Path originalImage = Paths.get(stego_image);
-			byte[] originalData = Files.readAllBytes(originalImage);
 
-			// Make sure nothing crazy has happened so far...
-			if (!stegOriginal.getSuccessBool()) {
-				throw new Exception();
-			}
-			// To hold the information we've just extracted
-			int currentBit = 0;
-			int bitIndex = 0;
+			// Get the data held in the steg image
+			Path originalPath = Paths.get(stego_image);
+			byte[] originalData = Files.readAllBytes(originalPath);
+
+			// Skip the first 54 bytes 
+			int currentPosition = 54;
+
+
+			// Read the size
 			String sizeString = "";
-			String extString = "";
-			// Cycle through and process what we've got
-			while (bitIndex < 54 + sizeBitsLength + extBitsLength) {
+			while (currentPosition < 54 + sizeBitsLength) {
+				sizeString = sizeString + Character.toString( (char) (getLsb(originalData[currentPosition++])+48) );
+			}
+			int size = Integer.parseInt(sizeString, 2);  // Convert bytes to bits
+			System.out.println(size);
 
-				currentBit = stegOriginal.getNextBit();
-
-				// Avoid the first 54 bits returned, it's Windows metadata. 
-				if (bitIndex > 54) {
-					// If we're currently at the size section
-					if (bitIndex < (54 + sizeBitsLength)) {
-						sizeString = sizeString.concat(Integer.toString(currentBit));
-					}
-
-					// If we're currently getting the extension
-					if (bitIndex > 54+sizeBitsLength) {
-						extString = extString.concat(Integer.toString(currentBit));
-					}
-
-				} 
-
-				bitIndex++;
-
+			// Read the ext
+			String ext = "";
+			while (currentPosition < 54 + sizeBitsLength + extBitsLength) {
+				String currentByte = "";
+				for (int bit = 0; bit < 8; bit++) {
+					currentByte = currentByte + (char)(getLsb(originalData[currentPosition++])+48);
+				}
+				// Make sure it isn't the stopchar
+				int currentChar = Integer.parseInt(currentByte, 2);
+				if (currentChar != 31) { ext = ext + Character.toString((char)currentChar); }
 			}
 
-
-			sizeString = asciiStringToString(sizeString);
-			extString = asciiStringToString(extString);
-
-			// Get filename using ext
 			// Select an appropriate filename
-			String filenameToReturn = "stegResult.".concat(extString); 
-			Integer fileCounter = 1;
-			while ( (new File(filenameToReturn).isFile() )) {
-				filenameToReturn = filenameToReturn.split(".")[0].concat(fileCounter.toString()).concat(extString);
-				fileCounter++;
-			}			
-
+			java.util.Date date = new java.util.Date(); 
+			date.getTime();
+			String filenameToReturn = "stegResult_" + date.getTime() + "." + ext; 
+			
+			// Where the output occurs
 			FileOutputStream stegOut = new FileOutputStream(filenameToReturn);
-
-			// Extract actual file data and write to stegOut
-			while (stegOriginal.hasNextBit()) {
-				stegOut.write(stegOriginal.getNextBit());
+			System.out.println("got here");
+			
+			
+			// Read the data stored in the file
+			while (currentPosition < 54 + sizeBitsLength + extBitsLength + size) {
+				String content = "";
+				for (int bit = 7; bit >= 0; bit--) {
+					//if (getLsb(originalData[currentPosition++]) == 1) content = content + (int)Math.pow(2, bit);
+					content = content + (char)(getLsb(originalData[currentPosition++])+48);
+				}
+				char currentChar = (char) Integer.parseInt(content, 2);
+				System.out.println(currentChar);
+				stegOut.write((byte)currentChar);
+				//content = content + ( (char)(getLsb(originalData[currentPosition++])) +48);  // Add 48 to convert to ascii from numeric
 			}
+			System.out.println("got here");
+			
 			stegOut.close();
+			
 			return filenameToReturn;
-
+			
 		} catch(Exception e) {
+			e.printStackTrace();
 			return "Fail";
 		}
 
@@ -375,7 +316,7 @@ class Steg
 	 * @param byt - the current byte
 	 * @return the altered byte
 	 */
-	public int swapLsb(int bitToHide,int byt)
+	public int swapLsb(int bitToHide,int byt) 
 	{		
 		return (byt - byt%2) + bitToHide;
 	}
